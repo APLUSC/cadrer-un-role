@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadrer un Rôle — Jemanage</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --cream: #F5F0E8; --ink: #1A1A1A; --warm: #C4956A; --warm-light: #F0E4D4;
+    --muted: #8B8070; --floor: #4A7C6F; --wall: #6B7FA3;
+    --ceiling: #B85C38; --step: #8B6BA8; --border: #D4C8B8; --white: #FFFFFF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--cream); color: var(--ink); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ─── HEADER ─── */
+  header {
+    padding: 20px 48px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--cream); position: sticky; top: 0; z-index: 10;
+  }
+  .logo { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+  .logo:hover { color: var(--ink); }
+  .header-center h1 { font-family: 'Playfair Display', serif; font-size: 17px; text-align:center; }
+  .header-center p { font-size: 11px; color: var(--muted); text-align:center; margin-top:2px; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .user-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: white; border: 1px solid var(--border);
+    border-radius: 20px; padding: 6px 14px; font-size: 12px;
+  }
+  .user-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--warm-light); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; color: var(--warm); }
+  .btn-nav { background: none; border: 1px solid var(--border); padding: 7px 16px; border-radius: 4px; font-family:'DM Sans',sans-serif; font-size:12px; color:var(--muted); cursor:pointer; transition: all .2s; }
+  .btn-nav:hover { border-color:var(--ink); color:var(--ink); }
+  .btn-nav.accent { background:var(--ink); color:white; border-color:var(--ink); }
+  .btn-nav.accent:hover { background:var(--warm); border-color:var(--warm); }
+  .prog-bar { display:flex; gap:4px; }
+  .prog-seg { height:3px; width:36px; border-radius:2px; background:var(--border); transition:background .3s; }
+  .prog-seg.done { background:var(--ink); }
+  .prog-seg.active { background:var(--warm); }
+
+  /* ─── LOGIN SCREEN ─── */
+  .login-screen {
+    min-height: calc(100vh - 65px);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 40px; padding: 60px 24px;
+  }
+  .login-intro { text-align: center; max-width: 480px; }
+  .login-intro .eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+  .login-intro h2 { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 700; margin-bottom: 14px; line-height: 1.25; }
+  .login-intro p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+  .login-card {
+    background: white; border: 1px solid var(--border); border-radius: 12px;
+    padding: 40px 44px; text-align: center; max-width: 380px; width: 100%;
+  }
+  .login-card h3 { font-family: 'Playfair Display', serif; font-size: 19px; margin-bottom: 8px; }
+  .login-card p { font-size: 12px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+  .btn-google {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 13px 20px;
+    background: white; border: 1.5px solid var(--border);
+    border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+    color: var(--ink); cursor: pointer; transition: all .2s;
+    text-decoration: none;
+  }
+  .btn-google:hover { border-color: var(--warm); box-shadow: 0 2px 12px rgba(196,149,106,.15); }
+  .btn-google svg { width: 18px; height: 18px; }
+  .login-note { font-size: 11px; color: var(--muted); margin-top: 16px; }
+
+  /* ─── CHOICE SCREEN ─── */
+  .choice-wrap {
+    min-height: calc(100vh - 65px);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 44px; padding: 60px 24px;
+  }
+  .choice-intro { text-align: center; max-width: 520px; }
+  .choice-intro h2 { font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 12px; line-height: 1.3; }
+  .choice-intro p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+  .choice-cards { display: grid; grid-template-columns: repeat(3, 220px); gap: 16px; }
+  .choice-card {
+    background: white; border: 2px solid var(--border); border-radius: 10px;
+    padding: 26px 20px; cursor: pointer; transition: all .25s; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .choice-card::before { content:''; position:absolute; top:0;left:0;right:0; height:4px; background:var(--border); transition:background .25s; }
+  .choice-card:hover { border-color:var(--warm); transform:translateY(-3px); box-shadow:0 8px 24px rgba(196,149,106,.15); }
+  .choice-card:hover::before { background:var(--warm); }
+  .choice-card.selected { border-color:var(--ink); }
+  .choice-card.selected::before { background:var(--ink); }
+  .choice-emoji { font-size:28px; margin-bottom:14px; display:block; }
+  .choice-card h3 { font-family:'Playfair Display',serif; font-size:15px; margin-bottom:7px; }
+  .choice-card p { font-size:11px; color:var(--muted); line-height:1.6; }
+  .choice-card .diff { margin-top:14px; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border-top:1px solid var(--border); padding-top:10px; }
+  .choice-card.selected .diff { color:var(--warm); }
+  .choice-cta { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .btn-start { background:var(--ink); color:white; border:none; padding:13px 38px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer; transition:all .2s; opacity:.3; pointer-events:none; }
+  .btn-start.ready { opacity:1; pointer-events:all; }
+  .btn-start.ready:hover { background:var(--warm); }
+
+  /* ─── FORM SCREEN ─── */
+  .main { display:grid; grid-template-columns:290px 1fr; min-height:calc(100vh - 65px); }
+  .room-panel { padding:28px 24px; border-right:1px solid var(--border); position:sticky; top:65px; height:calc(100vh - 65px); display:flex; flex-direction:column; gap:18px; overflow:hidden; }
+  .room-panel-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .room-svg-wrap { flex:1; display:flex; align-items:center; justify-content:center; }
+  .room-svg-wrap svg { width:100%; max-height:220px; }
+  .room-legend { display:flex; flex-direction:column; gap:7px; }
+  .legend-item { display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:5px; border:1px solid var(--border); background:white; transition:all .2s; opacity:.4; }
+  .legend-item.lit { opacity:1; border-color:var(--warm); transform:translateX(4px); }
+  .legend-dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+  .legend-text strong { display:block; font-size:11px; }
+  .legend-text span { color:var(--muted); font-size:10px; }
+  .form-panel { padding:44px 52px; display:flex; flex-direction:column; }
+  .context-block { margin-bottom:36px; padding-bottom:36px; border-bottom:1px solid var(--border); }
+  .context-chip { display:inline-block; background:var(--warm-light); color:var(--warm); font-size:11px; letter-spacing:.08em; text-transform:uppercase; padding:3px 11px; border-radius:20px; margin-bottom:12px; }
+  .context-block h2 { font-family:'Playfair Display',serif; font-size:21px; margin-bottom:5px; }
+  .context-block p { font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.6; }
+  .input-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .component-section { margin-bottom:40px; }
+  .component-header { display:flex; align-items:center; gap:13px; margin-bottom:16px; }
+  .comp-icon { width:40px; height:40px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+  .comp-meta h3 { font-family:'Playfair Display',serif; font-size:16px; }
+  .comp-meta p { font-size:11px; color:var(--muted); margin-top:2px; }
+  .comp-badge { font-size:10px; letter-spacing:.07em; text-transform:uppercase; padding:3px 9px; border-radius:20px; white-space:nowrap; margin-left:auto; }
+  .ceiling-accent { border-left:3px solid var(--ceiling); padding-left:16px; }
+  .wall-accent { border-left:3px solid var(--wall); padding-left:16px; }
+  .floor-accent { border-left:3px solid var(--floor); padding-left:16px; }
+  .step-accent { border-left:3px solid var(--step); padding-left:16px; }
+  .hint { background:white; border:1px solid var(--border); border-radius:5px; padding:10px 13px; font-size:11px; color:var(--muted); line-height:1.6; margin-bottom:12px; }
+  .hint::before { content:'↳ '; }
+  label { font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:500; display:block; margin-bottom:4px; }
+  .field-group { margin-bottom:12px; }
+  input[type="text"], textarea, select { width:100%; border:1px solid var(--border); background:white; padding:10px 13px; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--ink); border-radius:4px; outline:none; transition:border-color .2s; }
+  input:focus, textarea:focus, select:focus { border-color:var(--warm); }
+  textarea { resize:vertical; min-height:70px; line-height:1.6; }
+  .tags-wrap { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:9px; }
+  .tag { display:inline-flex; align-items:center; gap:5px; background:white; border:1px solid var(--border); border-radius:20px; padding:4px 11px; font-size:12px; }
+  .tag .rm { color:var(--muted); cursor:pointer; font-size:13px; line-height:1; }
+  .tag .rm:hover { color:var(--ceiling); }
+  .resp-list { display:flex; flex-direction:column; gap:7px; margin-bottom:9px; }
+  .resp-card { background:white; border:1px solid var(--border); border-radius:5px; padding:11px 13px; display:grid; grid-template-columns:1fr 100px 130px; gap:9px; align-items:center; }
+  .resp-card input, .resp-card select { margin-bottom:0; }
+  .add-btn { width:100%; background:none; border:1px dashed var(--border); padding:8px; border-radius:5px; color:var(--muted); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; transition:all .2s; }
+  .add-btn:hover { border-color:var(--warm); color:var(--warm); }
+  .sep { height:1px; background:var(--border); margin:32px 0; }
+  .form-actions { display:flex; justify-content:space-between; align-items:center; padding-top:24px; border-top:1px solid var(--border); margin-top:8px; }
+  .btn-ghost { background:none; border:1px solid var(--border); padding:10px 20px; border-radius:4px; font-family:'DM Sans',sans-serif; font-size:12px; color:var(--muted); cursor:pointer; transition:all .2s; }
+  .btn-ghost:hover { border-color:var(--ink); color:var(--ink); }
+  .btn-primary { background:var(--ink); border:none; padding:10px 26px; border-radius:4px; font-family:'DM Sans',sans-serif; font-size:13px; color:white; cursor:pointer; transition:background .2s; }
+  .btn-primary:hover { background:var(--warm); }
+  .save-btn { background:var(--floor); border:none; padding:10px 22px; border-radius:4px; font-family:'DM Sans',sans-serif; font-size:13px; color:white; cursor:pointer; transition:background .2s; display:flex; align-items:center; gap:7px; }
+  .save-btn:hover { background:#3a6358; }
+  .save-toast { position:fixed; bottom:24px; right:24px; background:var(--ink); color:white; padding:12px 20px; border-radius:6px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:100; }
+  .save-toast.show { opacity:1; }
+
+  /* ─── RESULT SCREEN ─── */
+  .result-wrap { max-width:780px; margin:0 auto; padding:56px 32px; }
+  .result-header { text-align:center; margin-bottom:48px; }
+  .result-header .check { font-size:36px; margin-bottom:14px; display:block; }
+  .result-header h2 { font-family:'Playfair Display',serif; font-size:26px; margin-bottom:6px; }
+  .result-header p { font-size:13px; color:var(--muted); }
+  .role-card { background:white; border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:20px; }
+  .role-card-header { padding:18px 26px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .role-card-header h3 { font-family:'Playfair Display',serif; font-size:18px; }
+  .role-card-header span { font-size:11px; color:var(--muted); }
+  .role-section { padding:20px 26px; border-bottom:1px solid var(--border); display:grid; grid-template-columns:150px 1fr; gap:18px; align-items:start; }
+  .role-section:last-child { border-bottom:none; }
+  .rs-label { display:flex; align-items:center; gap:7px; }
+  .rs-label .dot { width:9px; height:9px; border-radius:2px; flex-shrink:0; }
+  .rs-label strong { font-size:11px; }
+  .rs-label small { display:block; font-size:10px; color:var(--muted); margin-top:1px; }
+  .role-content { font-size:13px; line-height:1.7; }
+  .tag-sm { display:inline-block; background:var(--cream); border:1px solid var(--border); border-radius:4px; padding:2px 8px; font-size:11px; margin:2px 3px 2px 0; }
+  .resp-row { padding:7px 0; border-bottom:1px solid #f0ebe3; display:grid; grid-template-columns:1fr 80px 100px; gap:7px; font-size:12px; }
+  .resp-row:last-child { border-bottom:none; }
+  .resp-row .freq { color:var(--muted); }
+  .resp-row .mesure { color:var(--floor); font-style:italic; }
+  .reflection-block { background:var(--warm-light); border:1px solid #DFC4A8; border-radius:8px; padding:22px 26px; margin-bottom:20px; }
+  .reflection-block h4 { font-family:'Playfair Display',serif; font-size:15px; margin-bottom:10px; }
+  .reflection-block ul { list-style:none; display:flex; flex-direction:column; gap:7px; }
+  .reflection-block li { font-size:13px; color:#7A5535; padding-left:16px; position:relative; line-height:1.5; }
+  .reflection-block li::before { content:'→'; position:absolute; left:0; color:var(--warm); }
+  .result-actions { display:flex; justify-content:center; gap:10px; margin-top:28px; flex-wrap:wrap; }
+
+  /* ─── MES FICHES SCREEN ─── */
+  .fiches-wrap { max-width:860px; margin:0 auto; padding:56px 32px; }
+  .fiches-header { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:36px; }
+  .fiches-header h2 { font-family:'Playfair Display',serif; font-size:26px; }
+  .fiches-header p { font-size:13px; color:var(--muted); margin-top:4px; }
+  .fiches-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(360px, 1fr)); gap:16px; }
+  .fiche-card {
+    background:white; border:1px solid var(--border); border-radius:10px;
+    padding:22px 24px; cursor:pointer; transition:all .2s;
+    position:relative; overflow:hidden;
+  }
+  .fiche-card::before { content:''; position:absolute; top:0;left:0; width:4px; height:100%; background:var(--border); transition:background .2s; }
+  .fiche-card:hover { border-color:var(--warm); transform:translateY(-2px); box-shadow:0 6px 20px rgba(196,149,106,.12); }
+  .fiche-card:hover::before { background:var(--warm); }
+  .fiche-type { font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .fiche-title { font-family:'Playfair Display',serif; font-size:16px; margin-bottom:6px; }
+  .fiche-mission { font-size:12px; color:var(--muted); line-height:1.6; margin-bottom:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fiche-meta { display:flex; justify-content:space-between; align-items:center; }
+  .fiche-date { font-size:11px; color:var(--muted); }
+  .fiche-chips { display:flex; gap:5px; }
+  .fiche-chip { width:10px; height:10px; border-radius:2px; }
+  .empty-state { text-align:center; padding:80px 24px; color:var(--muted); }
+  .empty-state .es-icon { font-size:40px; margin-bottom:16px; display:block; }
+  .empty-state p { font-size:14px; line-height:1.7; }
+  .loading-state { text-align:center; padding:60px; color:var(--muted); font-size:14px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header>
+  <div class="logo" onclick="goToMyFiches()">Jemanage · Exercice</div>
+  <div class="header-center">
+    <h1>Cadrer un rôle</h1>
+    <p id="header-sub">Exercice de définition de rôle</p>
+  </div>
+  <div class="header-right">
+    <div id="user-zone" style="display:none;">
+      <div class="user-chip">
+        <div class="user-avatar" id="user-initials">?</div>
+        <span id="user-name" style="font-size:12px;">—</span>
+      </div>
+    </div>
+    <button class="btn-nav" id="btn-fiches" style="display:none" onclick="goToMyFiches()">📁 Mes fiches</button>
+    <button class="btn-nav accent" id="btn-new" style="display:none" onclick="goToChoice()">+ Nouveau rôle</button>
+    <button class="btn-nav" id="btn-logout" style="display:none" onclick="logout()">Déconnexion</button>
+    <div class="prog-bar" id="prog-bar" style="display:none">
+      <div class="prog-seg" id="p1"></div>
+      <div class="prog-seg" id="p2"></div>
+      <div class="prog-seg" id="p3"></div>
+      <div class="prog-seg" id="p4"></div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ SCREEN: LOGIN ═══ -->
+<div class="screen active" id="screen-login">
+  <div class="login-screen">
+    <div class="login-intro">
+      <div class="eyebrow">Jemanage · Exercice manager</div>
+      <h2>Apprenez à cadrer<br><em>un rôle structuré</em></h2>
+      <p>Mission, périmètre, responsabilités, objectifs.<br>Un exercice concret pour transformer vos attentes floues en cadre clair.</p>
+    </div>
+    <div class="login-card">
+      <h3>Accéder à l'exercice</h3>
+      <p>Connectez-vous pour sauvegarder vos fiches rôle et y revenir à tout moment.</p>
+      <button class="btn-google" onclick="loginWithGoogle()">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continuer avec Google
+      </button>
+      <p class="login-note">Vos fiches sont privées et accessibles uniquement par vous.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: CHOICE ═══ -->
+<div class="screen" id="screen-choice">
+  <div class="choice-wrap">
+    <div class="choice-intro">
+      <h2>Quel rôle souhaitez-vous<br><em>cadrer aujourd'hui ?</em></h2>
+      <p>Un rôle bien défini, c'est une pièce avec un plancher, des murs, un plafond et des marches.</p>
+    </div>
+    <div class="choice-cards">
+      <div class="choice-card" onclick="selectChoice(this,'mon-role')">
+        <span class="choice-emoji">🪞</span>
+        <h3>Mon propre rôle</h3>
+        <p>Clarifiez ce que votre poste de manager implique vraiment.</p>
+        <div class="diff">Intermédiaire</div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(this,'collaborateur')">
+        <span class="choice-emoji">👤</span>
+        <h3>Un collaborateur</h3>
+        <p>Définissez les attentes pour un membre de votre équipe.</p>
+        <div class="diff">Recommandé pour débuter</div>
+      </div>
+      <div class="choice-card" onclick="selectChoice(this,'fictif')">
+        <span class="choice-emoji">🧪</span>
+        <h3>Un poste fictif</h3>
+        <p>Entraînez-vous sans enjeu pour maîtriser la méthode.</p>
+        <div class="diff">Découverte</div>
+      </div>
+    </div>
+    <div class="choice-cta">
+      <button class="btn-start" id="btn-start" onclick="goToForm()">Commencer l'exercice →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: FORM ═══ -->
+<div class="screen" id="screen-form">
+  <div class="main">
+    <div class="room-panel">
+      <div class="room-panel-label">L'analogie de la pièce</div>
+      <div class="room-svg-wrap">
+        <svg viewBox="0 0 240 220" fill="none">
+          <rect x="36" y="28" width="168" height="130" fill="#F9F6F0" stroke="#D4C8B8" stroke-width="1.2"/>
+          <rect x="36" y="158" width="168" height="34" fill="#E0EFEC" stroke="#4A7C6F" stroke-width="2"/>
+          <rect x="36" y="14" width="168" height="22" fill="#FDEAE2" stroke="#B85C38" stroke-width="2"/>
+          <rect x="12" y="28" width="28" height="130" fill="#E2E7F0" stroke="#6B7FA3" stroke-width="1.5"/>
+          <rect x="200" y="28" width="28" height="130" fill="#E2E7F0" stroke="#6B7FA3" stroke-width="1.5"/>
+          <rect x="90" y="140" width="60" height="11" rx="2" fill="#EDE7F5" stroke="#8B6BA8" stroke-width="1.5"/>
+          <rect x="100" y="129" width="40" height="11" rx="2" fill="#EDE7F5" stroke="#8B6BA8" stroke-width="1.5"/>
+          <rect x="110" y="118" width="20" height="11" rx="2" fill="#EDE7F5" stroke="#8B6BA8" stroke-width="1.5"/>
+          <text x="120" y="9" text-anchor="middle" font-family="DM Sans" font-size="8" fill="#B85C38" font-weight="500">MISSION · Plafond</text>
+          <text x="120" y="180" text-anchor="middle" font-family="DM Sans" font-size="8" fill="#4A7C6F" font-weight="500">RESPONSABILITÉS · Plancher</text>
+          <text x="20" y="96" text-anchor="middle" font-family="DM Sans" font-size="7.5" fill="#6B7FA3" font-weight="500" transform="rotate(-90,20,96)">PÉRIMÈTRE · Murs</text>
+          <text x="120" y="112" text-anchor="middle" font-family="DM Sans" font-size="7.5" fill="#8B6BA8">OBJECTIFS</text>
+        </svg>
+      </div>
+      <div class="room-legend">
+        <div class="legend-item" id="leg-ceiling"><div class="legend-dot" style="background:var(--ceiling)"></div><div class="legend-text"><strong>Mission</strong><span>Idéal · sans mesure</span></div></div>
+        <div class="legend-item" id="leg-wall"><div class="legend-dot" style="background:var(--wall)"></div><div class="legend-text"><strong>Périmètre</strong><span>Domaines de propriété</span></div></div>
+        <div class="legend-item" id="leg-floor"><div class="legend-dot" style="background:var(--floor)"></div><div class="legend-text"><strong>Responsabilités</strong><span>Livrable minimum</span></div></div>
+        <div class="legend-item" id="leg-step"><div class="legend-dot" style="background:var(--step)"></div><div class="legend-text"><strong>Objectifs</strong><span>Marches temporaires</span></div></div>
+      </div>
+    </div>
+
+    <div class="form-panel">
+      <div class="context-block">
+        <div class="context-chip" id="context-chip">Type</div>
+        <h2 id="form-title">—</h2>
+        <p id="form-desc">—</p>
+        <div class="input-row">
+          <div class="field-group">
+            <label>Intitulé du poste</label>
+            <input type="text" id="input-poste" placeholder="ex : Responsable commercial France">
+          </div>
+          <div class="field-group" id="prenom-wrap">
+            <label>Prénom (optionnel)</label>
+            <input type="text" id="input-prenom" placeholder="ex : Marie">
+          </div>
+        </div>
+      </div>
+
+      <!-- MISSION -->
+      <div class="component-section" data-section="mission">
+        <div class="component-header">
+          <div class="comp-icon" style="background:#FDEAE2">✦</div>
+          <div class="comp-meta"><h3>Mission — le plafond</h3><p>L'idéal visé. Pas de chiffre, pas d'échéance.</p></div>
+          <div class="comp-badge" style="background:#FDEAE2;color:var(--ceiling)">Intemporel</div>
+        </div>
+        <div class="ceiling-accent">
+          <div class="hint">Commence par un verbe d'intention : <em>Développer, Garantir, Construire…</em></div>
+          <div class="field-group"><label>Mission</label><textarea id="input-mission" placeholder="ex : Développer la présence commerciale sur le marché français…"></textarea></div>
+        </div>
+      </div>
+      <div class="sep"></div>
+
+      <!-- PÉRIMÈTRE -->
+      <div class="component-section" data-section="perimetre">
+        <div class="component-header">
+          <div class="comp-icon" style="background:#E2E7F0">⬜</div>
+          <div class="comp-meta"><h3>Périmètre — les murs</h3><p>Domaines d'autorité. Personne n'y entre sans accord.</p></div>
+          <div class="comp-badge" style="background:#E2E7F0;color:var(--wall)">Propriété</div>
+        </div>
+        <div class="wall-accent">
+          <div class="hint">Soyez précis. <em>"Clients France hors grands comptes"</em> vaut mieux que <em>"Commercial"</em>.</div>
+          <div class="tags-wrap" id="scope-tags"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="scope-input" placeholder="Ajouter un domaine + Entrée" style="flex:1">
+            <button class="btn-ghost" onclick="addTag()" style="padding:8px 14px;font-size:12px;">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="sep"></div>
+
+      <!-- RESPONSABILITÉS -->
+      <div class="component-section" data-section="resp">
+        <div class="component-header">
+          <div class="comp-icon" style="background:#E0EFEC">▬</div>
+          <div class="comp-meta"><h3>Responsabilités — le plancher</h3><p>Ce qui est livré au minimum. Récurrent et mesurable.</p></div>
+          <div class="comp-badge" style="background:#E0EFEC;color:var(--floor)">Mesurable</div>
+        </div>
+        <div class="floor-accent">
+          <div class="hint">Livrable + fréquence + indicateur. Ex : <em>Pipeline mis à jour — Hebdo — &gt;90%</em></div>
+          <div class="resp-list" id="resp-list">
+            <div class="resp-card">
+              <input type="text" placeholder="Intitulé de la responsabilité">
+              <select><option>Hebdomadaire</option><option>Mensuel</option><option>Trimestriel</option><option>Continu</option></select>
+              <input type="text" placeholder="Indicateur">
+            </div>
+          </div>
+          <button class="add-btn" onclick="addResp()">+ Ajouter une responsabilité</button>
+        </div>
+      </div>
+      <div class="sep"></div>
+
+      <!-- OBJECTIFS -->
+      <div class="component-section" data-section="objectifs">
+        <div class="component-header">
+          <div class="comp-icon" style="background:#EDE7F5">◈</div>
+          <div class="comp-meta"><h3>Objectifs — les marches</h3><p>Jalons temporaires vers la mission.</p></div>
+          <div class="comp-badge" style="background:#EDE7F5;color:var(--step)">Temporaire</div>
+        </div>
+        <div class="step-accent">
+          <div class="hint">Chaque objectif a une échéance et une mesure. Il reste dans le périmètre.</div>
+          <div class="resp-list" id="obj-list">
+            <div class="resp-card">
+              <input type="text" placeholder="Intitulé de l'objectif">
+              <input type="text" placeholder="Échéance" style="font-size:12px;">
+              <input type="text" placeholder="Mesure de succès">
+            </div>
+          </div>
+          <button class="add-btn" onclick="addObj()">+ Ajouter un objectif</button>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-ghost" onclick="goToChoice()">← Changer</button>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="save-btn" onclick="saveFiche()">💾 Sauvegarder</button>
+          <button class="btn-primary" onclick="goToResult()">Voir la fiche →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: RESULT ═══ -->
+<div class="screen" id="screen-result">
+  <div class="result-wrap">
+    <div class="result-header">
+      <span class="check">✦</span>
+      <h2 id="result-title">Fiche rôle</h2>
+      <p id="result-sub">—</p>
+    </div>
+    <div class="role-card">
+      <div class="role-card-header"><h3 id="rc-poste">—</h3><span id="rc-type">—</span></div>
+      <div class="role-section">
+        <div class="rs-label"><div class="dot" style="background:var(--ceiling)"></div><div><strong>Mission</strong><small>le plafond ✦</small></div></div>
+        <div class="role-content" id="rc-mission" style="font-style:italic;color:var(--muted)"></div>
+      </div>
+      <div class="role-section">
+        <div class="rs-label"><div class="dot" style="background:var(--wall)"></div><div><strong>Périmètre</strong><small>les murs</small></div></div>
+        <div class="role-content" id="rc-perimetre"></div>
+      </div>
+      <div class="role-section">
+        <div class="rs-label"><div class="dot" style="background:var(--floor)"></div><div><strong>Responsabilités</strong><small>le plancher</small></div></div>
+        <div class="role-content" id="rc-resp"></div>
+      </div>
+      <div class="role-section">
+        <div class="rs-label"><div class="dot" style="background:var(--step)"></div><div><strong>Objectifs</strong><small>les marches</small></div></div>
+        <div class="role-content" id="rc-obj"></div>
+      </div>
+    </div>
+    <div class="reflection-block">
+      <h4>Questions de recul</h4>
+      <ul>
+        <li>La mission est-elle compréhensible sans explication supplémentaire ?</li>
+        <li>Les responsabilités sont-elles vraiment mesurables, ou restent-elles vagues ?</li>
+        <li>Le périmètre est-il assez précis pour éviter les zones de friction avec d'autres rôles ?</li>
+        <li>Les objectifs s'inscrivent-ils dans le périmètre et conduisent-ils vers la mission ?</li>
+      </ul>
+    </div>
+    <div class="result-actions">
+      <button class="btn-ghost" onclick="goToForm()">← Modifier</button>
+      <button class="save-btn" onclick="saveFiche()">💾 Sauvegarder la fiche</button>
+      <button class="btn-ghost" onclick="goToMyFiches()">📁 Mes fiches</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SCREEN: MES FICHES ═══ -->
+<div class="screen" id="screen-fiches">
+  <div class="fiches-wrap">
+    <div class="fiches-header">
+      <div>
+        <h2>Mes fiches rôle</h2>
+        <p>Retrouvez toutes les définitions de rôle que vous avez sauvegardées.</p>
+      </div>
+      <button class="btn-primary" onclick="goToChoice()">+ Nouveau rôle</button>
+    </div>
+    <div id="fiches-container"><div class="loading-state">Chargement…</div></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="save-toast" id="toast">✓ Fiche sauvegardée</div>
+
+<script>
+// ══════════════════════════════════════
+// ⚙️  CONFIGURATION SUPABASE
+// Remplacez les deux valeurs ci-dessous
+// avec celles de votre projet Supabase
+// ══════════════════════════════════════
+const SUPABASE_URL  = 'https://ubbpqtdpxyamkjvpdzzt.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_rvzMtkweCstN52Iygdw6_A_jMPVa0N2';
+// ══════════════════════════════════════
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let choiceType  = null;
+let editingId   = null;
+
+// ─── AUTH ───
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    setUser(session.user);
+    goToChoice();
+  }
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session?.user) { setUser(session.user); }
+  });
+}
+
+function setUser(user) {
+  currentUser = user;
+  const name = user.user_metadata?.full_name || user.email || '';
+  document.getElementById('user-name').textContent = name.split(' ')[0];
+  document.getElementById('user-initials').textContent = name.charAt(0).toUpperCase();
+  document.getElementById('user-zone').style.display = 'flex';
+  document.getElementById('btn-fiches').style.display = 'block';
+  document.getElementById('btn-new').style.display = 'block';
+  document.getElementById('btn-logout').style.display = 'block';
+}
+
+async function loginWithGoogle() {
+  await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href }
+  });
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  document.getElementById('user-zone').style.display = 'none';
+  document.getElementById('btn-fiches').style.display = 'none';
+  document.getElementById('btn-new').style.display = 'none';
+  document.getElementById('btn-logout').style.display = 'none';
+  show('screen-login');
+  setProgress(0);
+}
+
+// ─── NAVIGATION ───
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function setProgress(step) {
+  document.getElementById('prog-bar').style.display = step > 0 ? 'flex' : 'none';
+  ['p1','p2','p3','p4'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'prog-seg';
+    if (i + 1 < step) el.classList.add('done');
+    else if (i + 1 === step) el.classList.add('active');
+  });
+}
+
+function goToChoice() {
+  resetForm();
+  show('screen-choice');
+  setProgress(1);
+  document.getElementById('header-sub').textContent = 'Choisissez le type de rôle';
+}
+
+function goToForm() {
+  if (!choiceType) return;
+  applyChoiceContext();
+  show('screen-form');
+  setProgress(2);
+}
+
+function goToResult() {
+  buildResult();
+  show('screen-result');
+  setProgress(3);
+  document.getElementById('result-sub').textContent = 'Défini le ' + new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+}
+
+function goToMyFiches() {
+  show('screen-fiches');
+  setProgress(4);
+  document.getElementById('header-sub').textContent = 'Mes fiches sauvegardées';
+  loadFiches();
+}
+
+// ─── CHOICE ───
+function selectChoice(card, type) {
+  document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  choiceType = type;
+  document.getElementById('btn-start').classList.add('ready');
+}
+
+const choiceConfigs = {
+  'mon-role':      { chip:'🪞 Mon propre rôle', title:'Cadrez votre propre rôle de manager', desc:'Exercice difficile mais fondamental. Quelles sont vos vraies missions ?', showPrenom:false },
+  'collaborateur': { chip:'👤 Rôle d\'un collaborateur', title:'Cadrez le rôle d\'un collaborateur', desc:'Choisissez un membre de votre équipe et définissez clairement vos attentes.', showPrenom:true },
+  'fictif':        { chip:'🧪 Poste fictif', title:'Entraînez-vous sur un poste fictif', desc:'Inventez un poste type pour maîtriser la méthode sans enjeu réel.', showPrenom:false }
+};
+
+function applyChoiceContext() {
+  const c = choiceConfigs[choiceType];
+  document.getElementById('context-chip').textContent = c.chip;
+  document.getElementById('form-title').textContent = c.title;
+  document.getElementById('form-desc').textContent = c.desc;
+  document.getElementById('prenom-wrap').style.display = c.showPrenom ? 'block' : 'none';
+}
+
+// ─── TAGS ───
+document.getElementById('scope-input').addEventListener('keydown', e => { if (e.key === 'Enter') addTag(); });
+
+function addTag() {
+  const input = document.getElementById('scope-input');
+  const val = input.value.trim();
+  if (!val) return;
+  const wrap = document.getElementById('scope-tags');
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.dataset.value = val;
+  tag.innerHTML = val + ' <span class="rm" onclick="this.parentNode.remove()">×</span>';
+  wrap.appendChild(tag);
+  input.value = '';
+}
+
+// ─── RESP & OBJ ───
+function addResp() {
+  const list = document.getElementById('resp-list');
+  const card = document.createElement('div');
+  card.className = 'resp-card';
+  card.innerHTML = `<input type="text" placeholder="Intitulé"><select><option>Hebdomadaire</option><option>Mensuel</option><option>Trimestriel</option><option>Continu</option></select><input type="text" placeholder="Indicateur">`;
+  list.appendChild(card);
+}
+
+function addObj() {
+  const list = document.getElementById('obj-list');
+  const card = document.createElement('div');
+  card.className = 'resp-card';
+  card.innerHTML = `<input type="text" placeholder="Intitulé de l'objectif"><input type="text" placeholder="Échéance" style="font-size:12px;"><input type="text" placeholder="Mesure de succès">`;
+  list.appendChild(card);
+}
+
+// ─── COLLECT DATA ───
+function collectData() {
+  const tags = [...document.querySelectorAll('#scope-tags .tag')].map(t => t.dataset.value || t.textContent.replace('×','').trim());
+  const resps = [...document.querySelectorAll('#resp-list .resp-card')].map(card => {
+    const inp = card.querySelectorAll('input');
+    const sel = card.querySelector('select');
+    return { titre: inp[0]?.value.trim(), freq: sel?.value, indicateur: inp[1]?.value.trim() };
+  }).filter(r => r.titre);
+  const objs = [...document.querySelectorAll('#obj-list .resp-card')].map(card => {
+    const inp = card.querySelectorAll('input');
+    return { titre: inp[0]?.value.trim(), echeance: inp[1]?.value.trim(), mesure: inp[2]?.value.trim() };
+  }).filter(o => o.titre);
+
+  return {
+    type: choiceType,
+    poste: document.getElementById('input-poste').value.trim(),
+    prenom: document.getElementById('input-prenom').value.trim(),
+    mission: document.getElementById('input-mission').value.trim(),
+    perimetre: tags,
+    responsabilites: resps,
+    objectifs: objs
+  };
+}
+
+// ─── RESULT ───
+function buildResult() {
+  const d = collectData();
+  const typeLabels = { 'mon-role':'Mon rôle', 'collaborateur':'Collaborateur', 'fictif':'Poste fictif' };
+  document.getElementById('result-title').textContent = 'Fiche rôle : ' + (d.poste || 'Sans titre');
+  document.getElementById('rc-poste').textContent = d.poste + (d.prenom ? ' · ' + d.prenom : '');
+  document.getElementById('rc-type').textContent = typeLabels[d.type] || '';
+  document.getElementById('rc-mission').innerHTML = d.mission || '<em style="color:var(--muted)">Non renseignée</em>';
+
+  document.getElementById('rc-perimetre').innerHTML = d.perimetre.length
+    ? d.perimetre.map(t => `<span class="tag-sm">${t}</span>`).join('')
+    : '<em style="color:var(--muted)">Non renseigné</em>';
+
+  document.getElementById('rc-resp').innerHTML = d.responsabilites.length
+    ? d.responsabilites.map(r => `<div class="resp-row"><span>${r.titre}</span><span class="freq">${r.freq}</span><span class="mesure">${r.indicateur}</span></div>`).join('')
+    : '<em style="color:var(--muted)">Non renseignées</em>';
+
+  document.getElementById('rc-obj').innerHTML = d.objectifs.length
+    ? d.objectifs.map(o => `<div class="resp-row"><span>${o.titre}</span><span class="freq">${o.echeance}</span><span class="mesure">${o.mesure}</span></div>`).join('')
+    : '<em style="color:var(--muted)">Non renseignés</em>';
+}
+
+// ─── SAVE ───
+async function saveFiche() {
+  if (!currentUser) { alert('Connectez-vous pour sauvegarder.'); return; }
+  const data = collectData();
+  const payload = {
+    user_id:  currentUser.id,
+    type:     data.type,
+    poste:    data.poste,
+    prenom:   data.prenom,
+    mission:  data.mission,
+    perimetre: data.perimetre,
+    responsabilites: data.responsabilites,
+    objectifs: data.objectifs
+  };
+  if (editingId) {
+    await sb.from('fiches_role').update(payload).eq('id', editingId);
+  } else {
+    const { data: row } = await sb.from('fiches_role').insert(payload).select().single();
+    if (row) editingId = row.id;
+  }
+  showToast('✓ Fiche sauvegardée');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── LOAD FICHES ───
+async function loadFiches() {
+  if (!currentUser) return;
+  const container = document.getElementById('fiches-container');
+  container.innerHTML = '<div class="loading-state">Chargement…</div>';
+  const { data: fiches } = await sb.from('fiches_role').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+
+  if (!fiches || fiches.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="es-icon">📄</span><p>Vous n'avez pas encore de fiches sauvegardées.<br>Créez votre premier rôle pour commencer.</p></div>`;
+    return;
+  }
+
+  const typeLabels = { 'mon-role':'🪞 Mon rôle', 'collaborateur':'👤 Collaborateur', 'fictif':'🧪 Fictif' };
+  container.innerHTML = `<div class="fiches-grid">${fiches.map(f => `
+    <div class="fiche-card" onclick="openFiche('${f.id}')">
+      <div class="fiche-type">${typeLabels[f.type] || f.type}</div>
+      <div class="fiche-title">${f.poste || 'Sans titre'}${f.prenom ? ' · ' + f.prenom : ''}</div>
+      <div class="fiche-mission">${f.mission || 'Mission non définie'}</div>
+      <div class="fiche-meta">
+        <span class="fiche-date">${new Date(f.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'})}</span>
+        <div class="fiche-chips">
+          <div class="fiche-chip" style="background:var(--ceiling)" title="Mission"></div>
+          <div class="fiche-chip" style="background:var(--wall);opacity:${f.perimetre?.length ? 1 : .25}" title="Périmètre"></div>
+          <div class="fiche-chip" style="background:var(--floor);opacity:${f.responsabilites?.length ? 1 : .25}" title="Responsabilités"></div>
+          <div class="fiche-chip" style="background:var(--step);opacity:${f.objectifs?.length ? 1 : .25}" title="Objectifs"></div>
+        </div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+async function openFiche(id) {
+  const { data: f } = await sb.from('fiches_role').select('*').eq('id', id).single();
+  if (!f) return;
+  editingId = f.id;
+  choiceType = f.type;
+  applyChoiceContext();
+
+  document.getElementById('input-poste').value = f.poste || '';
+  document.getElementById('input-prenom').value = f.prenom || '';
+  document.getElementById('input-mission').value = f.mission || '';
+
+  document.getElementById('scope-tags').innerHTML = '';
+  (f.perimetre || []).forEach(val => {
+    const tag = document.createElement('span');
+    tag.className = 'tag'; tag.dataset.value = val;
+    tag.innerHTML = val + ' <span class="rm" onclick="this.parentNode.remove()">×</span>';
+    document.getElementById('scope-tags').appendChild(tag);
+  });
+
+  document.getElementById('resp-list').innerHTML = '';
+  (f.responsabilites || []).forEach(r => {
+    const card = document.createElement('div'); card.className = 'resp-card';
+    card.innerHTML = `<input type="text" value="${r.titre||''}"><select><option ${r.freq==='Hebdomadaire'?'selected':''}>Hebdomadaire</option><option ${r.freq==='Mensuel'?'selected':''}>Mensuel</option><option ${r.freq==='Trimestriel'?'selected':''}>Trimestriel</option><option ${r.freq==='Continu'?'selected':''}>Continu</option></select><input type="text" value="${r.indicateur||''}">`;
+    document.getElementById('resp-list').appendChild(card);
+  });
+  if (!f.responsabilites?.length) addResp();
+
+  document.getElementById('obj-list').innerHTML = '';
+  (f.objectifs || []).forEach(o => {
+    const card = document.createElement('div'); card.className = 'resp-card';
+    card.innerHTML = `<input type="text" value="${o.titre||''}"><input type="text" value="${o.echeance||''}" style="font-size:12px;"><input type="text" value="${o.mesure||''}">`;
+    document.getElementById('obj-list').appendChild(card);
+  });
+  if (!f.objectifs?.length) addObj();
+
+  show('screen-form');
+  setProgress(2);
+}
+
+function resetForm() {
+  editingId = null;
+  choiceType = null;
+  document.getElementById('btn-start').classList.remove('ready');
+  document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('input-poste').value = '';
+  document.getElementById('input-prenom').value = '';
+  document.getElementById('input-mission').value = '';
+  document.getElementById('scope-tags').innerHTML = '';
+  document.getElementById('resp-list').innerHTML = '';
+  document.getElementById('obj-list').innerHTML = '';
+  addResp(); addObj();
+}
+
+// ─── SCROLL HIGHLIGHT ───
+const legMap = { mission:'leg-ceiling', perimetre:'leg-wall', resp:'leg-floor', objectifs:'leg-step' };
+window.addEventListener('scroll', () => {
+  let current = null;
+  document.querySelectorAll('[data-section]').forEach(s => {
+    if (s.getBoundingClientRect().top < window.innerHeight * 0.5) current = s.dataset.section;
+  });
+  document.querySelectorAll('.legend-item').forEach(el => el.classList.remove('lit'));
+  if (current && legMap[current]) document.getElementById(legMap[current]).classList.add('lit');
+});
+
+// ─── BOOT ───
+init();
+</script>
+</body>
+</html>
